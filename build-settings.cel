@@ -1,0 +1,5 @@
+opt_level = 3
+generate_debug = true
+keep_temp_files = false
+main_file = "\"\""
+app_name = "\"\""
