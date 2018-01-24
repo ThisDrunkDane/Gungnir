@@ -3,6 +3,8 @@
 *.otm
 [Rr]un_tree/imgui.ini
 nohup.out
+main.lib
+main.exp
 
 # Created by https://www.gitignore.io/api/windows,visualstudio
 
