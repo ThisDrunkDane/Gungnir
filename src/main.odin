@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 25-01-2018 00:22:05 UTC+1
+ *  @Last Time: 25-01-2018 00:51:29 UTC+1
  *  
  *  @Description:
  *  
@@ -32,6 +32,8 @@ import       "shared:libbrew/string_util.odin";
 import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
+
+VERSION_STR :: "v1.0.0";
 
 Settings :: struct {
     opt_level       : int,
@@ -67,7 +69,15 @@ execute_system_command :: proc(fmt_ : string, args : ...any) -> int {
 }
 
 usage :: proc() {
-    fmt.println("USAGE");
+    fmt.fprintf(os.stderr, "Odinbuilder %s by Mikkel Hjortshoej 2018\n", VERSION_STR);
+    fmt.fprintf(os.stderr, "Available commands:\n");
+    fmt.fprintf(os.stderr, "    setup                 - Use this in a directory setup the files structure for this system\n");
+    fmt.fprintf(os.stderr, "    edit                  - Open a GUI for editing the build-settings.cel\n");
+    fmt.fprintf(os.stderr, "    set <settings> value> - Set a value in the build settings. Current options;\n");
+    fmt.fprintf(os.stderr, "                                Opt - the optmization level for odin, must be 0, 1, 2 or 3\n");
+    fmt.fprintf(os.stderr, "    toggle <settings>     - Toggle values in the build settings. Current options;\n");
+    fmt.fprintf(os.stderr, "                                debug      - toggle wether or not to build .pdbs\n");
+    fmt.fprintf(os.stderr, "                                temp-files - toggle wether or not to keep temporary files\n");
 }
 
 SETTINGS_PATH :: "build-settings.cel";
