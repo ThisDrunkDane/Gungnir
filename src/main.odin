@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 25-01-2018 00:51:29 UTC+1
+ *  @Last Time: 25-01-2018 00:53:23 UTC+1
  *  
  *  @Description:
  *  
@@ -83,6 +83,13 @@ usage :: proc() {
 SETTINGS_PATH :: "build-settings.cel";
 
 main :: proc() {
+    args := os.args[1..];
+    argc := len(args);
+    if argc == 0 {
+        usage();
+        os.exit(-1);
+    }
+
     settings := Settings{};
     
     if !file.does_file_or_dir_exists(SETTINGS_PATH) {
@@ -96,13 +103,6 @@ main :: proc() {
     if !ok {
         fmt.println_err("Can't parse build-settings.cel");
         return;
-    }
-
-    args := os.args[1..];
-    argc := len(args);
-    if argc == 0 {
-        usage();
-        os.exit(-1);
     }
 
     for i := 0; i < argc; i += 1 {
