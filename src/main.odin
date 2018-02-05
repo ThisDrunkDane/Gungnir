@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 25-01-2018 00:53:23 UTC+1
+ *  @Last Time: 05-02-2018 23:52:06 UTC+1
  *  
  *  @Description:
  *  
@@ -71,18 +71,20 @@ execute_system_command :: proc(fmt_ : string, args : ...any) -> int {
 usage :: proc() {
     fmt.fprintf(os.stderr, "Odinbuilder %s by Mikkel Hjortshoej 2018\n", VERSION_STR);
     fmt.fprintf(os.stderr, "Available commands:\n");
-    fmt.fprintf(os.stderr, "    setup                 - Use this in a directory setup the files structure for this system\n");
-    fmt.fprintf(os.stderr, "    edit                  - Open a GUI for editing the build-settings.cel\n");
-    fmt.fprintf(os.stderr, "    set <settings> value> - Set a value in the build settings. Current options;\n");
-    fmt.fprintf(os.stderr, "                                Opt - the optmization level for odin, must be 0, 1, 2 or 3\n");
-    fmt.fprintf(os.stderr, "    toggle <settings>     - Toggle values in the build settings. Current options;\n");
-    fmt.fprintf(os.stderr, "                                debug      - toggle wether or not to build .pdbs\n");
-    fmt.fprintf(os.stderr, "                                temp-files - toggle wether or not to keep temporary files\n");
+    fmt.fprintf(os.stderr, "    setup                  - Use this in a directory setup the files structure for this system\n");
+    fmt.fprintf(os.stderr, "    edit                   - Open a GUI for editing the build-settings.cel\n");
+    fmt.fprintf(os.stderr, "    build                  - Build project based on the settings set\n");
+    fmt.fprintf(os.stderr, "    set <settings> <value> - Set a value in the build settings. Current options;\n");
+    fmt.fprintf(os.stderr, "                                 Opt - the optmization level for odin, must be 0, 1, 2 or 3\n");
+    fmt.fprintf(os.stderr, "    toggle <settings>      - Toggle values in the build settings. Current options;\n");
+    fmt.fprintf(os.stderr, "                                 debug      - toggle wether or not to build .pdbs\n");
+    fmt.fprintf(os.stderr, "                                 temp-files - toggle wether or not to keep temporary files\n");
 }
 
 SETTINGS_PATH :: "build-settings.cel";
 
 main :: proc() {
+    _fix := alloc(1);
     args := os.args[1..];
     argc := len(args);
     if argc == 0 {
@@ -91,8 +93,7 @@ main :: proc() {
     }
 
     settings := Settings{};
-    
-    if !file.does_file_or_dir_exists(SETTINGS_PATH) {
+    if !file.is_path_valid(SETTINGS_PATH) {
         fmt.println_err("build-settings.cel does not exist, creating...");
         settings.app_name = "N/A";
         settings.main_file = "N/A";
@@ -148,7 +149,6 @@ main :: proc() {
 
             case "build" : 
                 build(&settings);
-                cel.marshal_file(SETTINGS_PATH, settings);
 
             case "setup" : 
                 i += 1;
@@ -158,6 +158,7 @@ main :: proc() {
 
             case "edit" :
                 gui(&settings);
+                cel.marshal_file(SETTINGS_PATH, settings);
 
             case : 
                 fmt.fprintf(os.stderr, "Invalid Command: %s\n", arg);
@@ -449,7 +450,7 @@ gui :: proc(settings : ^Settings) {
 
             imgui.end();
         }
-        imgui.render_proc(dear_state, WND_WIDTH, WND_HEIGHT);
+        imgui.render_proc(dear_state, true, WND_WIDTH, WND_HEIGHT);
         window.swap_buffers(wnd_handle);
     }
 }
