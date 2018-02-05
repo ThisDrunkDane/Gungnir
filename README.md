@@ -15,3 +15,6 @@
     </a>
     <img src="https://img.shields.io/badge/language-Odin-lightgrey.svg">
 </p>
+
+### Sublime Text
+Here is a [gist](https://gist.github.com/ThisDrunkDane/cc09335b5d30f21a034626984ebe972c) of a .sublime-build to use odinbuilder, requires odinbuilder to be in your PATH
