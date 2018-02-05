@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 05-02-2018 23:52:06 UTC+1
+ *  @Last Time: 06-02-2018 00:05:05 UTC+1
  *  
  *  @Description:
  *  
@@ -33,7 +33,7 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.0.0";
+VERSION_STR :: "v1.0.1";
 
 Settings :: struct {
     opt_level       : int,
@@ -74,9 +74,9 @@ usage :: proc() {
     fmt.fprintf(os.stderr, "    setup                  - Use this in a directory setup the files structure for this system\n");
     fmt.fprintf(os.stderr, "    edit                   - Open a GUI for editing the build-settings.cel\n");
     fmt.fprintf(os.stderr, "    build                  - Build project based on the settings set\n");
-    fmt.fprintf(os.stderr, "    set <settings> <value> - Set a value in the build settings. Current options;\n");
+    fmt.fprintf(os.stderr, "    set <settings> <value> - Set a value in the build settings. Options;\n");
     fmt.fprintf(os.stderr, "                                 Opt - the optmization level for odin, must be 0, 1, 2 or 3\n");
-    fmt.fprintf(os.stderr, "    toggle <settings>      - Toggle values in the build settings. Current options;\n");
+    fmt.fprintf(os.stderr, "    toggle <settings>      - Toggle values in the build settings. Options;\n");
     fmt.fprintf(os.stderr, "                                 debug      - toggle wether or not to build .pdbs\n");
     fmt.fprintf(os.stderr, "                                 temp-files - toggle wether or not to keep temporary files\n");
 }
@@ -237,7 +237,9 @@ style :: proc() {
 
 setup_window :: proc(w, h : int) -> window.WndHandle {
     app_handle := misc.get_app_handle();
-    wnd_handle := window.create_window(app_handle, "Odin Builder", w, h, 
+    buf : [1024]byte;
+    title := fmt.bprintf(buf[..], "Odin Builder %s", VERSION_STR);
+    wnd_handle := window.create_window(app_handle, title, w, h, 
                                        window.Window_Style.NonresizeableWindow);
     gl_ctx     := wgl.create_gl_context(wnd_handle, 3, 3);
 
