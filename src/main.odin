@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 06-02-2018 00:05:05 UTC+1
+ *  @Last Time: 07-02-2018 18:50:17 UTC+1
  *  
  *  @Description:
  *  
@@ -380,7 +380,7 @@ gui :: proc(settings : ^Settings) {
             if imgui.begin_child("move files", imgui.Vec2{0, 150}) {
                 defer imgui.end_child();
                 for file, i in settings.files_to_move {
-                    imgui.push_id(i);
+                    imgui.push_id(i); defer imgui.pop_id();
                     imgui.text(file); imgui.same_line();
                     if imgui.button("Remove") {
                         index_to_remove = i;
@@ -417,7 +417,7 @@ gui :: proc(settings : ^Settings) {
             if imgui.begin_child("delete files", imgui.Vec2{0, 150}) {
                 defer imgui.end_child();
                 for file, i in settings.files_to_delete {
-                    imgui.push_id(i);
+                    imgui.push_id(i); defer imgui.pop_id();
                     imgui.text(file); imgui.same_line();
                     if imgui.button("Remove") {
                         index_to_remove = i;
