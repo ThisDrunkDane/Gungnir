@@ -1,4 +1,5 @@
-main_file = "tesset"
-app_name = "hmm this is weird"
+main_file = "WEEE"
+app_name = "HELL YEAH"
 files_to_move = []
 files_to_delete = []
+collection_names = ["foo"]

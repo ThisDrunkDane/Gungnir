@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 13-02-2018 12:34:03 UTC+1
+ *  @Last Time: 13-02-2018 13:45:17 UTC+1
  *  
  *  @Description:
  *  
@@ -33,20 +33,31 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.0.2-dev";
+VERSION_STR :: "v1.1.0-dev";
 
 Settings :: struct {
-    main_file       : string,
-    app_name        : string,
+    main_file        : string,
+    app_name         : string,
 
-    files_to_move   : [dynamic]string,
-    files_to_delete : [dynamic]string,
+
+    files_to_move    : [dynamic]string,
+    files_to_delete  : [dynamic]string,
+
+    collection_names : [dynamic]string,
 }
 
 Transient :: struct {
-    opt_level       : int,
-    generate_debug  : bool,
-    keep_temp_files : bool,
+    opt_level        : int,
+    generate_debug   : bool,
+    keep_temp_files  : bool,
+    use_otime        : bool,
+
+    collections      : [dynamic]Collection_Entry,
+}
+
+Collection_Entry :: struct {
+    name : string,
+    path : string,
 }
 
 execute_system_command :: proc(fmt_ : string, args : ...any) -> int {
@@ -109,13 +120,13 @@ main :: proc() {
     }
 
     if !file.is_path_valid(SETTINGS_PATH) {
-        fmt.println_err("could not find settings.odbs");
+        fmt.println_err("could not find settings.odbs!");
         os.exit(-1);
     }
 
     if !file.is_path_valid(TRANSIENT_PATH) {
-        fmt.println_err("could not find transiet.odbs");
-        os.exit(-1);
+        fmt.println_err("could not find transiet.odbs, creating...");
+        cel.marshal_file(TRANSIENT_PATH, transient);
     }
 
     ok := cel.unmarshal_file(SETTINGS_PATH, settings);
@@ -305,9 +316,16 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
     fmt.bprintf(app_name_buf[..], settings.app_name);
 
     move_buf : [1024]byte;
-    delete_buf : [1024]byte;
     add_new_move := false;
+
+    delete_buf : [1024]byte;
     add_new_delete := false;
+    
+    collection_name_buf : [1024]byte;
+    collection_path_buf : [1024]byte;
+    add_new_collection  := false;
+    editing_collection  := false;
+    editing_index       := -1;
 
     for running {
         new_frame_state.mouse_wheel = 0;
@@ -396,11 +414,13 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                 settings.app_name = string_util.str_from_buf(app_name_buf[..]);
                 cel.marshal_file(SETTINGS_PATH, settings^);
             }
+            if imgui.checkbox("Use Otime?", &transient.use_otime) {
+                cel.marshal_file(TRANSIENT_PATH, transient^);
+            }
 
             imgui.text("Files to move after building.");
             index_to_remove := -1;
-            if imgui.begin_child("move files", imgui.Vec2{0, 150}) {
-                defer imgui.end_child();
+            if imgui.begin_child("move files", imgui.Vec2{0, 125}) {
                 for file, i in settings.files_to_move {
                     imgui.push_id(i); defer imgui.pop_id();
                     imgui.text(file); imgui.same_line();
@@ -429,6 +449,8 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                     }
                 } 
             }
+            imgui.end_child();
+            
             if index_to_remove > -1 {
                 dyna_util.remove_ordered(&settings.files_to_move, index_to_remove);
                 cel.marshal_file(SETTINGS_PATH, settings^);
@@ -436,8 +458,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
 
             imgui.text("Files to delete after building.");
             index_to_remove = -1;
-            if imgui.begin_child("delete files", imgui.Vec2{0, 150}) {
-                defer imgui.end_child();
+            if imgui.begin_child("delete files", imgui.Vec2{0, 125}) {
                 for file, i in settings.files_to_delete {
                     imgui.push_id(i); defer imgui.pop_id();
                     imgui.text(file); imgui.same_line();
@@ -461,25 +482,178 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                     }
                     imgui.same_line();
                     if imgui.button("Cancel##delete") {
-                        add_new_move = false;
+                        add_new_delete = false;
                         mem.zero(&delete_buf[0], len(delete_buf));
                     }
                 } 
             }
+            imgui.end_child();
 
             if index_to_remove > -1 {
                 dyna_util.remove_ordered(&settings.files_to_delete, index_to_remove);
                 cel.marshal_file(SETTINGS_PATH, settings^);
             }
 
-            imgui.end();
+            imgui.text("Collections.");
+            index_to_remove = -1;
+            if imgui.begin_child("Collections") {
+                imgui.columns(count = 2, border = false);
+                for col_name, i in settings.collection_names {
+                    if i == editing_index do continue;
+                    imgui.push_id(i); defer imgui.pop_id();
+                    imgui.set_column_width(width = 150);
+                    imgui.text(col_name); imgui.same_line();
+                    imgui.next_column();
+                    collection : Collection_Entry;
+                    for col in transient.collections {
+                        if col_name == col.name {
+                            imgui.text(col.path); imgui.same_line();
+                            collection = col;
+                        }
+                    }
+
+                    if imgui.button("Edit") {
+                        editing_index = i;;
+                        fmt.bprintf(collection_name_buf[..], col_name);
+                        if len(collection.path) > 0 {
+                            fmt.bprintf(collection_path_buf[..], collection.path);
+                        }
+                        editing_collection = true;
+                    } imgui.same_line();
+
+                    if imgui.button("Remove") {
+                        index_to_remove = i;
+                    }
+                    imgui.next_column();
+                }
+                imgui.columns_reset();
+
+                if editing_collection {
+                    imgui.input_text("Name##collection", collection_name_buf[..]); 
+                    imgui.input_text("Path##collection", collection_path_buf[..]);
+
+                    if imgui.button("Save##edit_collection") {
+                        editing_collection = false;
+
+                        new_name := string_util.str_from_buf(collection_name_buf[..]);
+                        col_name := settings.collection_names[editing_index];
+
+                        if new_name != col_name {
+                            settings.collection_names[editing_index] = strings.new_string(new_name);
+                        }
+
+                        path := string_util.str_from_buf(collection_path_buf[..]);
+                        if new_name != col_name {
+                            remove_i := -1; 
+                            for old, i in transient.collections {
+                                if old.name == col_name {
+                                    remove_i = i;
+                                }
+                            }
+                            
+                            if index_to_remove > -1 {
+                                dyna_util.remove_ordered(&transient.collections, remove_i);
+                            }
+
+                            append(&transient.collections, Collection_Entry{strings.new_string(new_name), 
+                                                                            strings.new_string(path)});
+                        } else {
+                            change := -1;
+                            for col, i in transient.collections {
+                                if col.name == col_name {
+                                    change = i;
+                                }
+                            }
+                            if change > -1 {
+                                col := transient.collections[change];
+                                col.path = strings.new_string(path);
+                                transient.collections[change] = col;
+                            } else {
+                                append(&transient.collections, Collection_Entry{strings.new_string(new_name), 
+                                                                                strings.new_string(path)});
+                            }
+                        }
+
+                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
+                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
+                        editing_index = -1;
+                        cel.marshal_file(SETTINGS_PATH, settings^);
+                        cel.marshal_file(TRANSIENT_PATH, transient^);
+                    }
+                    imgui.same_line();
+                    if imgui.button("Cancel##edit_collection") {
+                        editing_collection = false;
+                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
+                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
+                        editing_index = -1;
+                    }
+                }
+
+                if !add_new_collection && imgui.button("Add collection") {
+                    add_new_collection = true;
+                }
+
+                if add_new_collection {
+                    imgui.input_text("Name##collection", collection_name_buf[..]); 
+                    imgui.input_text("Path##collection", collection_path_buf[..]);
+
+                    if imgui.button("Save##collection") {
+                        add_new_collection = false;
+                        
+                        tmp  := string_util.str_from_buf(collection_name_buf[..]);
+                        name := strings.new_string(tmp);
+                        append(&settings.collection_names, name);
+                        
+                        tmp   = string_util.str_from_buf(collection_path_buf[..]);
+                        if len(tmp) > 0 {
+                            path := strings.new_string(tmp);
+                            append(&transient.collections, Collection_Entry{name, path});
+                        }
+
+                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
+                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
+
+                        cel.marshal_file(SETTINGS_PATH, settings^);
+                        cel.marshal_file(TRANSIENT_PATH, transient^);
+                    }
+                    imgui.same_line();
+                    if imgui.button("Cancel##collection") {
+                        add_new_collection = false;
+                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
+                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
+                    }
+                }
+            }
+            imgui.end_child();
+
+            if index_to_remove > -1 {
+                name := settings.collection_names[index_to_remove];
+                remove_i := -1;
+                for col, i in transient.collections {
+                    if col.name == name {
+                        remove_i = i;
+                    }
+                }
+
+                dyna_util.remove_ordered(&settings.collection_names, index_to_remove);
+                dyna_util.remove_ordered(&transient.collections,     remove_i);
+                cel.marshal_file(SETTINGS_PATH,  settings^);
+                cel.marshal_file(TRANSIENT_PATH, transient^);
+            }
+
         }
+        imgui.end();
         imgui.render_proc(dear_state, true, WND_WIDTH, WND_HEIGHT);
         window.swap_buffers(wnd_handle);
     }
 }
 
 build :: proc(settings : ^Settings, transient : ^Transient) {
+    if len(settings.collection_names) != len(transient.collections) {
+        fmt.println_err("You're missing some collection paths");
+        return;
+    }
+
     fmt.printf("Building %s", settings.main_file);
     if transient.opt_level != 0 {
         fmt.printf(" on opt level %d", transient.opt_level);
@@ -491,12 +665,31 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         fmt.print(" and keeping temp files");
     }
     fmt.print("\n");
-    execute_system_command("otime -begin %s.otm", settings.app_name);
-    exit_code := execute_system_command("odin build %s -opt=%d %s %s", 
+    if transient.use_otime do execute_system_command("otime -begin %s.otm", settings.app_name);
+
+    collection_string := "";
+
+    buf        : [4096]byte;
+    buf_offset := 0;
+    for col_name in settings.collection_names {
+        for col in transient.collections {
+            if col.name == col_name {
+                str := fmt.bprintf(buf[buf_offset..], "-collection=%s=%s ", col.name, col.path);
+                buf_offset += len(str);
+            }
+        }
+    }
+
+    if len(settings.collection_names) > 0 {
+        collection_string = string_util.str_from_buf(buf[..]);
+    }
+
+    exit_code := execute_system_command("odin build %s -opt=%d %s %s %s", 
                                         settings.main_file,
                                         transient.opt_level,
                                         transient.generate_debug ? "-debug" : "",
-                                        transient.keep_temp_files ? "-keep-temp-files" : "");
+                                        transient.keep_temp_files ? "-keep-temp-files" : "",
+                                        collection_string);
     move :: proc(e, n : string) -> bool {
         return cast(bool)win32.move_file_ex_a(&e[0], &n[0], win32.MOVEFILE_REPLACE_EXISTING | win32.MOVEFILE_WRITE_THROUGH | win32.MOVEFILE_COPY_ALLOWED);
     }
@@ -556,7 +749,7 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         fmt.println("Build Failed!");
     }
 
-    execute_system_command("otime -end %s.otm %d", settings.app_name, exit_code);
+    if transient.use_otime do execute_system_command("otime -end %s.otm %d", settings.app_name, exit_code);
 }
 
 setup :: proc(app_name : string, settings : ^Settings) {

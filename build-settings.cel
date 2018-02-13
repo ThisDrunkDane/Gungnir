@@ -1,4 +1,4 @@
-opt_level = 0
+opt_level = 3
 generate_debug = false
 keep_temp_files = false
 main_file = "src/main.odin"

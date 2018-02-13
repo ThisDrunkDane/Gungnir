@@ -1,3 +1,5 @@
-opt_level = 1
-generate_debug = true
+opt_level = 0
+generate_debug = false
 keep_temp_files = false
+use_otime = false
+collections = []
