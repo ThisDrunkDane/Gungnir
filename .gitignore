@@ -5,6 +5,7 @@
 nohup.out
 main.lib
 main.exp
+transient.odbs
 
 # Created by https://www.gitignore.io/api/windows,visualstudio
 

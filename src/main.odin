@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 13-02-2018 13:45:17 UTC+1
+ *  @Last Time: 13-02-2018 14:11:24 UTC+1
  *  
  *  @Description:
  *  
@@ -39,7 +39,6 @@ Settings :: struct {
     main_file        : string,
     app_name         : string,
 
-
     files_to_move    : [dynamic]string,
     files_to_delete  : [dynamic]string,
 
@@ -51,6 +50,8 @@ Transient :: struct {
     generate_debug   : bool,
     keep_temp_files  : bool,
     use_otime        : bool,
+    otime_use_app    : bool,
+    otime_file       : string,
 
     collections      : [dynamic]Collection_Entry,
 }
@@ -160,7 +161,7 @@ main :: proc() {
                     } 
 
                 }
-                cel.marshal_file(SETTINGS_PATH, transient);
+                cel.marshal_file(TRANSIENT_PATH, transient);
             }
 
             case "toggle": {
@@ -181,7 +182,7 @@ main :: proc() {
                         fmt.fprintf(os.stderr, "Cannot toggle %s\n", value);
                     }
                 }
-                cel.marshal_file(SETTINGS_PATH, transient);
+                cel.marshal_file(TRANSIENT_PATH, transient);
             }
 
             case "build" : build(&settings, &transient);
@@ -327,6 +328,9 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
     editing_collection  := false;
     editing_index       := -1;
 
+    otime_file_buf : [256]byte;
+    fmt.bprintf(otime_file_buf[..], transient.otime_file);
+
     for running {
         new_frame_state.mouse_wheel = 0;
 
@@ -416,6 +420,19 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
             }
             if imgui.checkbox("Use Otime?", &transient.use_otime) {
                 cel.marshal_file(TRANSIENT_PATH, transient^);
+            }
+            if transient.use_otime {
+                imgui.indent();
+                if imgui.checkbox("Use app name?", &transient.otime_use_app) {
+                    cel.marshal_file(TRANSIENT_PATH, transient^);
+                }
+                if !transient.otime_use_app {
+                    if imgui.input_text("File name", otime_file_buf[..]) {
+                        transient.otime_file = string_util.str_from_buf(otime_file_buf[..]);
+                        cel.marshal_file(TRANSIENT_PATH, transient^);
+                    }
+                }
+                imgui.unindent();
             }
 
             imgui.text("Files to move after building.");
@@ -665,8 +682,15 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         fmt.print(" and keeping temp files");
     }
     fmt.print("\n");
-    if transient.use_otime do execute_system_command("otime -begin %s.otm", settings.app_name);
-
+    if transient.use_otime {
+        name : string;
+        if transient.otime_use_app {
+            name = settings.app_name;
+        } else {
+            name = transient.otime_file;
+        }
+        execute_system_command("otime -begin %s.otm", name);
+    }
     collection_string := "";
 
     buf        : [4096]byte;
@@ -698,6 +722,14 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
     }
 
     if exit_code == 0 {
+        if !file.is_path_valid("build") {
+            fmt.println_err("build directory does not exist! Creating...");
+            create_dir :: proc(name : string) {
+                win32.create_directory_a(&name[0], nil);
+            }
+            create_dir("build");
+        }
+
         file_name := settings.main_file[..len(settings.main_file)-5];
         e_buf : [2048]byte;
         n_buf : [2048]byte;
@@ -749,7 +781,15 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         fmt.println("Build Failed!");
     }
 
-    if transient.use_otime do execute_system_command("otime -end %s.otm %d", settings.app_name, exit_code);
+    if transient.use_otime {
+        name : string;
+        if transient.otime_use_app {
+            name = settings.app_name;
+        } else {
+            name = transient.otime_file;
+        }
+        execute_system_command("otime -end %s.otm %d", name, exit_code);
+    }
 }
 
 setup :: proc(app_name : string, settings : ^Settings) {

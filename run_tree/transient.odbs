@@ -1,5 +1,7 @@
 opt_level = 0
 generate_debug = false
 keep_temp_files = false
-use_otime = false
+use_otime = true
+otime_use_app = false
+otime_file = "test"
 collections = []
