@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 13-02-2018 12:27:30 UTC+1
+ *  @Last Time: 13-02-2018 12:34:03 UTC+1
  *  
  *  @Description:
  *  
@@ -185,8 +185,6 @@ main :: proc() {
 
             case "edit" : {
                 gui(&settings, &transient);
-                cel.marshal_file(SETTINGS_PATH, settings);
-                cel.marshal_file(TRANSIENT_PATH, transient);
             }
 
             case : {
@@ -381,24 +379,22 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
 
             levels := []string{"0", "1", "2", "3"};
             if imgui.combo("Opt Level", cast(^i32)&transient.opt_level, levels) {
-                cel.marshal_file(TRANSIENT_PATH, transient);
+                cel.marshal_file(TRANSIENT_PATH, transient^);
             }
 
             if imgui.checkbox("Generate .PDBs?", &transient.generate_debug) {
-                cel.marshal_file(TRANSIENT_PATH, transient);
+                cel.marshal_file(TRANSIENT_PATH, transient^);
             }
             if imgui.checkbox("Keep temp files?", &transient.keep_temp_files) {
-                cel.marshal_file(TRANSIENT_PATH, transient);
+                cel.marshal_file(TRANSIENT_PATH, transient^);
             }
             if imgui.input_text("Main File Location", main_file_buf[..]) {
                 settings.main_file = string_util.str_from_buf(main_file_buf[..]);
-                fmt.println("before:", settings.main_file);
-                cel.marshal_file(SETTINGS_PATH, settings);
-                fmt.println("after:", settings.main_file);
+                cel.marshal_file(SETTINGS_PATH, settings^);
             }
             if imgui.input_text("App Name", app_name_buf[..]) {
                 settings.app_name = string_util.str_from_buf(app_name_buf[..]);
-                cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(SETTINGS_PATH, settings^);
             }
 
             imgui.text("Files to move after building.");
@@ -424,7 +420,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                         str := strings.new_string(tmp);
                         append(&settings.files_to_move, str);
                         mem.zero(&move_buf[0], len(move_buf));
-                        cel.marshal_file(SETTINGS_PATH, settings);
+                        cel.marshal_file(SETTINGS_PATH, settings^);
                     }
                     imgui.same_line();
                     if imgui.button("Cancel##move") {
@@ -435,7 +431,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
             }
             if index_to_remove > -1 {
                 dyna_util.remove_ordered(&settings.files_to_move, index_to_remove);
-                cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(SETTINGS_PATH, settings^);
             }
 
             imgui.text("Files to delete after building.");
@@ -461,7 +457,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                         str := strings.new_string(tmp);
                         append(&settings.files_to_delete, str);
                         mem.zero(&delete_buf[0], len(delete_buf));
-                        cel.marshal_file(SETTINGS_PATH, settings);
+                        cel.marshal_file(SETTINGS_PATH, settings^);
                     }
                     imgui.same_line();
                     if imgui.button("Cancel##delete") {
@@ -473,7 +469,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
 
             if index_to_remove > -1 {
                 dyna_util.remove_ordered(&settings.files_to_delete, index_to_remove);
-                cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(SETTINGS_PATH, settings^);
             }
 
             imgui.end();
