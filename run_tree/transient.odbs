@@ -1,0 +1,3 @@
+opt_level = 1
+generate_debug = true
+keep_temp_files = false

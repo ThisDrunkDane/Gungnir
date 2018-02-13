@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 07-02-2018 18:50:17 UTC+1
+ *  @Last Time: 13-02-2018 12:27:30 UTC+1
  *  
  *  @Description:
  *  
@@ -20,12 +20,12 @@ import       "core:mem.odin";
 import       "core:strconv.odin";
 import win32 "core:sys/windows.odin";
 
-import       "shared:libbrew/win/file.odin";
-import       "shared:libbrew/win/window.odin";
-import       "shared:libbrew/win/misc.odin";
-import       "shared:libbrew/win/msg.odin";
-import       "shared:libbrew/win/keys.odin";
-import wgl   "shared:libbrew/win/opengl.odin";
+import       "shared:libbrew/sys/file.odin";
+import       "shared:libbrew/sys/window.odin";
+import       "shared:libbrew/sys/misc.odin";
+import       "shared:libbrew/sys/msg.odin";
+import       "shared:libbrew/sys/keys.odin";
+import wgl   "shared:libbrew/sys/opengl.odin";
 
 import       "shared:libbrew/cel.odin";
 import       "shared:libbrew/string_util.odin";
@@ -33,17 +33,20 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.0.1";
+VERSION_STR :: "v1.0.2-dev";
 
 Settings :: struct {
-    opt_level       : int,
-    generate_debug  : bool,
-    keep_temp_files : bool,
     main_file       : string,
     app_name        : string,
 
     files_to_move   : [dynamic]string,
     files_to_delete : [dynamic]string,
+}
+
+Transient :: struct {
+    opt_level       : int,
+    generate_debug  : bool,
+    keep_temp_files : bool,
 }
 
 execute_system_command :: proc(fmt_ : string, args : ...any) -> int {
@@ -72,6 +75,7 @@ usage :: proc() {
     fmt.fprintf(os.stderr, "Odinbuilder %s by Mikkel Hjortshoej 2018\n", VERSION_STR);
     fmt.fprintf(os.stderr, "Available commands:\n");
     fmt.fprintf(os.stderr, "    setup                  - Use this in a directory setup the files structure for this system\n");
+    fmt.fprintf(os.stderr, "    create                 - Create a build settings file and transient file\n");
     fmt.fprintf(os.stderr, "    edit                   - Open a GUI for editing the build-settings.cel\n");
     fmt.fprintf(os.stderr, "    build                  - Build project based on the settings set\n");
     fmt.fprintf(os.stderr, "    set <settings> <value> - Set a value in the build settings. Options;\n");
@@ -81,7 +85,8 @@ usage :: proc() {
     fmt.fprintf(os.stderr, "                                 temp-files - toggle wether or not to keep temporary files\n");
 }
 
-SETTINGS_PATH :: "build-settings.cel";
+SETTINGS_PATH  :: "settings.odbs";
+TRANSIENT_PATH :: "transient.odbs";
 
 main :: proc() {
     _fix := alloc(1);
@@ -93,18 +98,37 @@ main :: proc() {
     }
 
     settings := Settings{};
-    if !file.is_path_valid(SETTINGS_PATH) {
-        fmt.println_err("build-settings.cel does not exist, creating...");
+    transient := Transient{};
+    if args[0] == "create" {
         settings.app_name = "N/A";
         settings.main_file = "N/A";
+        fmt.println("Creating settings.odbs and transient.odbs");
         cel.marshal_file(SETTINGS_PATH, settings);
+        cel.marshal_file(TRANSIENT_PATH, transient);
+        os.exit(0);
+    }
+
+    if !file.is_path_valid(SETTINGS_PATH) {
+        fmt.println_err("could not find settings.odbs");
+        os.exit(-1);
+    }
+
+    if !file.is_path_valid(TRANSIENT_PATH) {
+        fmt.println_err("could not find transiet.odbs");
+        os.exit(-1);
     }
 
     ok := cel.unmarshal_file(SETTINGS_PATH, settings);
     if !ok {
-        fmt.println_err("Can't parse build-settings.cel");
-        return;
+        fmt.println_err("Can't parse settings.odbs");
+        os.exit(-1);
     }
+
+    ok = cel.unmarshal_file(TRANSIENT_PATH, transient);
+    if !ok {
+        fmt.println_err("Can't parse transient.odbs");
+        os.exit(-1);
+    } 
 
     for i := 0; i < argc; i += 1 {
         arg := args[i];
@@ -116,8 +140,8 @@ main :: proc() {
                     case "opt": {
                         i += 1;
                         level := strconv.parse_int(args[i]);
-                        settings.opt_level = level;
-                        fmt.printf("Opt level set to %d!\n", settings.opt_level);
+                        transient.opt_level = level;
+                        fmt.printf("Opt level set to %d!\n", transient.opt_level);
                     }
 
                     case : {
@@ -125,45 +149,51 @@ main :: proc() {
                     } 
 
                 }
-                cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(SETTINGS_PATH, transient);
             }
-            case "toggle": 
+
+            case "toggle": {
                 i += 1;
                 value := args[i]; 
                 switch value {
                     case "debug": {
-                        settings.generate_debug = !settings.generate_debug;
-                        fmt.printf("Now %sgenerating debug info!\n", settings.generate_debug ? "" : "not ");
+                        transient.generate_debug = !transient.generate_debug;
+                        fmt.printf("Now %sgenerating debug info!\n", transient.generate_debug ? "" : "not ");
                     }
 
                     case "temp-files": {
-                        settings.keep_temp_files = !settings.keep_temp_files;
-                        fmt.printf("Now %skeeping temp files!\n", settings.keep_temp_files ? "" : "not ");
+                        transient.keep_temp_files = !transient.keep_temp_files;
+                        fmt.printf("Now %skeeping temp files!\n", transient.keep_temp_files ? "" : "not ");
                     }
 
                     case : {
                         fmt.fprintf(os.stderr, "Cannot toggle %s\n", value);
                     }
                 }
-                cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(SETTINGS_PATH, transient);
+            }
 
-            case "build" : 
-                build(&settings);
+            case "build" : build(&settings, &transient);
 
-            case "setup" : 
+            case "setup" : {
                 i += 1;
                 name := args[i]; 
                 setup(name, &settings);
                 cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(TRANSIENT_PATH, transient);
+            }
 
-            case "edit" :
-                gui(&settings);
+            case "edit" : {
+                gui(&settings, &transient);
                 cel.marshal_file(SETTINGS_PATH, settings);
+                cel.marshal_file(TRANSIENT_PATH, transient);
+            }
 
-            case : 
+            case : {
                 fmt.fprintf(os.stderr, "Invalid Command: %s\n", arg);
                 usage();
                 os.exit(-1);
+            }
         }
     }
 }
@@ -252,7 +282,7 @@ setup_window :: proc(w, h : int) -> window.WndHandle {
     return wnd_handle;
 }
 
-gui :: proc(settings : ^Settings) {
+gui :: proc(settings : ^Settings, transient : ^Transient) {
     WND_WIDTH  :: 500;
     WND_HEIGHT :: 600;
 
@@ -348,31 +378,27 @@ gui :: proc(settings : ^Settings) {
                                      imgui.Window_Flags.NoCollapse | 
                                      imgui.Window_Flags.NoMove);
 
-            save :: proc(settings : Settings) {
-                ok := cel.marshal_file(SETTINGS_PATH, settings);
-                if !ok {
-                    fmt.println_err("Could not marshal settings");
-                }
-            }
 
             levels := []string{"0", "1", "2", "3"};
-            if imgui.combo("Opt Level", cast(^i32)&settings.opt_level, levels) {
-                save(settings^);
+            if imgui.combo("Opt Level", cast(^i32)&transient.opt_level, levels) {
+                cel.marshal_file(TRANSIENT_PATH, transient);
             }
 
-            if imgui.checkbox("Generate .PDBs?", &settings.generate_debug) {
-                save(settings^);
+            if imgui.checkbox("Generate .PDBs?", &transient.generate_debug) {
+                cel.marshal_file(TRANSIENT_PATH, transient);
             }
-            if imgui.checkbox("Keep temp files?", &settings.keep_temp_files) {
-                save(settings^);
+            if imgui.checkbox("Keep temp files?", &transient.keep_temp_files) {
+                cel.marshal_file(TRANSIENT_PATH, transient);
             }
             if imgui.input_text("Main File Location", main_file_buf[..]) {
                 settings.main_file = string_util.str_from_buf(main_file_buf[..]);
-                save(settings^);
+                fmt.println("before:", settings.main_file);
+                cel.marshal_file(SETTINGS_PATH, settings);
+                fmt.println("after:", settings.main_file);
             }
             if imgui.input_text("App Name", app_name_buf[..]) {
                 settings.app_name = string_util.str_from_buf(app_name_buf[..]);
-                save(settings^);
+                cel.marshal_file(SETTINGS_PATH, settings);
             }
 
             imgui.text("Files to move after building.");
@@ -398,7 +424,7 @@ gui :: proc(settings : ^Settings) {
                         str := strings.new_string(tmp);
                         append(&settings.files_to_move, str);
                         mem.zero(&move_buf[0], len(move_buf));
-                        save(settings^);
+                        cel.marshal_file(SETTINGS_PATH, settings);
                     }
                     imgui.same_line();
                     if imgui.button("Cancel##move") {
@@ -409,7 +435,7 @@ gui :: proc(settings : ^Settings) {
             }
             if index_to_remove > -1 {
                 dyna_util.remove_ordered(&settings.files_to_move, index_to_remove);
-                save(settings^);
+                cel.marshal_file(SETTINGS_PATH, settings);
             }
 
             imgui.text("Files to delete after building.");
@@ -435,7 +461,7 @@ gui :: proc(settings : ^Settings) {
                         str := strings.new_string(tmp);
                         append(&settings.files_to_delete, str);
                         mem.zero(&delete_buf[0], len(delete_buf));
-                        save(settings^);
+                        cel.marshal_file(SETTINGS_PATH, settings);
                     }
                     imgui.same_line();
                     if imgui.button("Cancel##delete") {
@@ -447,7 +473,7 @@ gui :: proc(settings : ^Settings) {
 
             if index_to_remove > -1 {
                 dyna_util.remove_ordered(&settings.files_to_delete, index_to_remove);
-                save(settings^);
+                cel.marshal_file(SETTINGS_PATH, settings);
             }
 
             imgui.end();
@@ -457,24 +483,24 @@ gui :: proc(settings : ^Settings) {
     }
 }
 
-build :: proc(settings : ^Settings) {
+build :: proc(settings : ^Settings, transient : ^Transient) {
     fmt.printf("Building %s", settings.main_file);
-    if settings.opt_level != 0 {
-        fmt.printf(" on opt level %d", settings.opt_level);
+    if transient.opt_level != 0 {
+        fmt.printf(" on opt level %d", transient.opt_level);
     }
-    if settings.generate_debug {
+    if transient.generate_debug {
         fmt.print(" with debug info");
     }
-    if settings.keep_temp_files {
+    if transient.keep_temp_files {
         fmt.print(" and keeping temp files");
     }
     fmt.print("\n");
     execute_system_command("otime -begin %s.otm", settings.app_name);
     exit_code := execute_system_command("odin build %s -opt=%d %s %s", 
                                         settings.main_file,
-                                        settings.opt_level,
-                                        settings.generate_debug ? "-debug" : "",
-                                        settings.keep_temp_files ? "-keep-temp-files" : "");
+                                        transient.opt_level,
+                                        transient.generate_debug ? "-debug" : "",
+                                        transient.keep_temp_files ? "-keep-temp-files" : "");
     move :: proc(e, n : string) -> bool {
         return cast(bool)win32.move_file_ex_a(&e[0], &n[0], win32.MOVEFILE_REPLACE_EXISTING | win32.MOVEFILE_WRITE_THROUGH | win32.MOVEFILE_COPY_ALLOWED);
     }
@@ -493,7 +519,7 @@ build :: proc(settings : ^Settings) {
         } else {
             fmt.println_err("Could not move executable!");
         }
-        if settings.generate_debug {
+        if transient.generate_debug {
             ok = move(fmt.bprintf(e_buf[..], "%s.pdb\x00", file_name),
                       fmt.bprintf(n_buf[..], "build/%s.pdb\x00", string_util.remove_path_from_file(file_name)));
             if ok {
@@ -521,8 +547,11 @@ build :: proc(settings : ^Settings) {
             cstr := fmt.bprintf(e_buf[..], "%s\x00", str);
             ok := win32.delete_file_a(&cstr[0]);
             if !ok {
+                ERROR_FILE_NOT_FOUND :: 2;
                 err := win32.get_last_error();
-                fmt.fprintf(os.stderr, "(%d)Could not delete %s\n", err, cstr);
+                if err != ERROR_FILE_NOT_FOUND {
+                    fmt.fprintf(os.stderr, "Could not delete %s\n", str);
+                }
             }
         }
 

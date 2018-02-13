@@ -1,7 +1,0 @@
-opt_level = 0
-generate_debug = false
-keep_temp_files = false
-main_file = "N/A"
-app_name = "N/A"
-files_to_move = []
-files_to_delete = []
