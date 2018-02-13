@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 13-02-2018 14:12:50 UTC+1
+ *  @Last Time: 13-02-2018 14:31:31 UTC+1
  *  
  *  @Description:
  *  
@@ -33,7 +33,7 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.1.0";
+VERSION_STR :: "v1.1.1-dev";
 
 Settings :: struct {
     main_file        : string,
@@ -126,7 +126,7 @@ main :: proc() {
     }
 
     if !file.is_path_valid(TRANSIENT_PATH) {
-        fmt.println_err("could not find transiet.odbs, creating...");
+        fmt.println_err("could not find transient.odbs, creating...");
         cel.marshal_file(TRANSIENT_PATH, transient);
     }
 
