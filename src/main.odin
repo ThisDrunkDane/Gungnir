@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 13-02-2018 14:31:31 UTC+1
+ *  @Last Time: 25-02-2018 14:47:38 UTC+1
  *  
  *  @Description:
  *  
@@ -112,8 +112,9 @@ main :: proc() {
     settings := Settings{};
     transient := Transient{};
     if args[0] == "create" {
-        settings.app_name = "N/A";
-        settings.main_file = "N/A";
+        settings.app_name = "main";
+        settings.main_file = "src/main.odin";
+        transient.otime_file = settings.app_name;
         fmt.println("Creating settings.odbs and transient.odbs");
         cel.marshal_file(SETTINGS_PATH, settings);
         cel.marshal_file(TRANSIENT_PATH, transient);
@@ -671,6 +672,14 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         return;
     }
 
+    if !file.is_path_valid("build") {
+        fmt.println_err("build directory does not exist! Creating...");
+        create_dir :: proc(name : string) {
+            win32.create_directory_a(&name[0], nil);
+        }
+        create_dir("build");
+    }
+
     fmt.printf("Building %s", settings.main_file);
     if transient.opt_level != 0 {
         fmt.printf(" on opt level %d", transient.opt_level);
@@ -708,11 +717,12 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         collection_string = string_util.str_from_buf(buf[..]);
     }
 
-    exit_code := execute_system_command("odin build %s -opt=%d %s %s %s", 
+    exit_code := execute_system_command("odin build %s -opt=%d %s %s -out=build/%s %s", 
                                         settings.main_file,
                                         transient.opt_level,
                                         transient.generate_debug ? "-debug" : "",
                                         transient.keep_temp_files ? "-keep-temp-files" : "",
+                                        settings.app_name,
                                         collection_string);
     move :: proc(e, n : string) -> bool {
         return cast(bool)win32.move_file_ex_a(&e[0], &n[0], win32.MOVEFILE_REPLACE_EXISTING | win32.MOVEFILE_WRITE_THROUGH | win32.MOVEFILE_COPY_ALLOWED);
@@ -722,17 +732,9 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
     }
 
     if exit_code == 0 {
-        if !file.is_path_valid("build") {
-            fmt.println_err("build directory does not exist! Creating...");
-            create_dir :: proc(name : string) {
-                win32.create_directory_a(&name[0], nil);
-            }
-            create_dir("build");
-        }
-
-        file_name := settings.main_file[..len(settings.main_file)-5];
         e_buf : [2048]byte;
         n_buf : [2048]byte;
+/*        file_name := settings.main_file[..len(settings.main_file)-5];
         ok := move(fmt.bprintf(e_buf[..], "%s.exe\x00", file_name),
                    fmt.bprintf(n_buf[..], "build/%s.exe\x00", settings.app_name));
         if ok {
@@ -748,10 +750,10 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
             } else {
                 fmt.println_err("Could not move pdb!");
             }
-        }
+        }*/
         success := 0;
         for str in settings.files_to_move {
-            ok = copy(fmt.bprintf(e_buf[..], "%s\x00", str),
+            ok := copy(fmt.bprintf(e_buf[..], "%s\x00", str),
                       fmt.bprintf(n_buf[..], "build/%s\x00", string_util.remove_path_from_file(str)),
                       false);
             if !ok {
@@ -796,14 +798,14 @@ setup :: proc(app_name : string, settings : ^Settings) {
     settings.app_name = app_name;
     settings.main_file = "src/main.odin";
     
-    create_dir :: proc(name : string) {
+    create_directory :: proc(name : string) {
         win32.create_directory_a(&name[0], nil);
     }
-    create_dir("build");
-    create_dir("src");
-    create_dir("misc");
+    create_directory("build");
+    create_directory("src");
+    create_directory("misc");
     create_misc_files();
-    create_dir("run_tree");
+    create_directory("run_tree");
     create_run(settings.app_name);
     create_sublime_project(settings.app_name);
 
