@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 25-02-2018 14:47:38 UTC+1
+ *  @Last Time: 25-02-2018 14:51:22 UTC+1
  *  
  *  @Description:
  *  
@@ -33,7 +33,7 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.1.1-dev";
+VERSION_STR :: "v1.1.1";
 
 Settings :: struct {
     main_file        : string,
