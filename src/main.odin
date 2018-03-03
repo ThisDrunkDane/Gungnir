@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 25-02-2018 14:51:22 UTC+1
+ *  @Last Time: 03-03-2018 19:31:11 UTC+1
  *  
  *  @Description:
  *  
@@ -33,7 +33,7 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.1.1";
+VERSION_STR :: "v1.1.2-dev";
 
 Settings :: struct {
     main_file        : string,
@@ -59,28 +59,6 @@ Transient :: struct {
 Collection_Entry :: struct {
     name : string,
     path : string,
-}
-
-execute_system_command :: proc(fmt_ : string, args : ...any) -> int {
-    exit_code : u32;
-
-    su := win32.Startup_Info{};
-    su.cb = size_of(win32.Startup_Info);
-    pi := win32.Process_Information{};
-    cmd := fmt.aprintf(fmt_, ...args);
-    
-    if win32.create_process_a(nil, &cmd[0], nil, nil, false, 0, nil, nil, &su, &pi) {
-        win32.wait_for_single_object(pi.process, win32.INFINITE);
-        win32.get_exit_code_process(pi.process, &exit_code);
-        win32.close_handle(pi.process);
-        win32.close_handle(pi.thread);
-    } else {
-        fmt.printf("Failed to execute:\n\t%s\n", cmd);
-        return -1;
-    }
-    
-
-    return int(exit_code);
 }
 
 usage :: proc() {
@@ -399,7 +377,6 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                                      imgui.Window_Flags.NoCollapse | 
                                      imgui.Window_Flags.NoMove);
 
-
             levels := []string{"0", "1", "2", "3"};
             if imgui.combo("Opt Level", cast(^i32)&transient.opt_level, levels) {
                 cel.marshal_file(TRANSIENT_PATH, transient^);
@@ -666,6 +643,24 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
     }
 }
 
+Otime_Usage :: enum {
+    Begin,
+    End
+}
+
+do_otime :: proc(settings : ^Settings, transient : ^Transient, usage : Otime_Usage, exit_code := 0) {
+    name : string;
+    if transient.otime_use_app {
+        name = settings.app_name;
+    } else {
+        name = transient.otime_file;
+    }
+    switch usage {
+        case Otime_Usage.Begin : misc.execute_system_command("otime -begin %s.otm", name);
+        case Otime_Usage.End   : misc.execute_system_command("otime -end %s.otm %d", name, exit_code);
+    }
+}
+
 build :: proc(settings : ^Settings, transient : ^Transient) {
     if len(settings.collection_names) != len(transient.collections) {
         fmt.println_err("You're missing some collection paths");
@@ -675,7 +670,7 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
     if !file.is_path_valid("build") {
         fmt.println_err("build directory does not exist! Creating...");
         create_dir :: proc(name : string) {
-            win32.create_directory_a(&name[0], nil);
+            win32.create_directory_a(cstring(&name[0]), nil);
         }
         create_dir("build");
     }
@@ -692,13 +687,7 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
     }
     fmt.print("\n");
     if transient.use_otime {
-        name : string;
-        if transient.otime_use_app {
-            name = settings.app_name;
-        } else {
-            name = transient.otime_file;
-        }
-        execute_system_command("otime -begin %s.otm", name);
+        do_otime(settings, transient, Otime_Usage.Begin);
     }
     collection_string := "";
 
@@ -717,7 +706,7 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         collection_string = string_util.str_from_buf(buf[..]);
     }
 
-    exit_code := execute_system_command("odin build %s -opt=%d %s %s -out=build/%s %s", 
+    exit_code := misc.execute_system_command("odin build %s -opt=%d %s %s -out=build/%s %s", 
                                         settings.main_file,
                                         transient.opt_level,
                                         transient.generate_debug ? "-debug" : "",
@@ -725,32 +714,16 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
                                         settings.app_name,
                                         collection_string);
     move :: proc(e, n : string) -> bool {
-        return cast(bool)win32.move_file_ex_a(&e[0], &n[0], win32.MOVEFILE_REPLACE_EXISTING | win32.MOVEFILE_WRITE_THROUGH | win32.MOVEFILE_COPY_ALLOWED);
+        return cast(bool)win32.move_file_ex_a(cstring(&e[0]), cstring(&n[0]), win32.MOVEFILE_REPLACE_EXISTING | win32.MOVEFILE_WRITE_THROUGH | win32.MOVEFILE_COPY_ALLOWED);
     }
     copy :: proc(e, n : string, f : bool) -> bool {
-        return cast(bool)win32.copy_file_a(&e[0], &n[0], cast(win32.Bool)f);
+        return cast(bool)win32.copy_file_a(cstring(&e[0]), cstring(&n[0]), cast(win32.Bool)f);
     }
 
     if exit_code == 0 {
         e_buf : [2048]byte;
         n_buf : [2048]byte;
-/*        file_name := settings.main_file[..len(settings.main_file)-5];
-        ok := move(fmt.bprintf(e_buf[..], "%s.exe\x00", file_name),
-                   fmt.bprintf(n_buf[..], "build/%s.exe\x00", settings.app_name));
-        if ok {
-            fmt.println("Moved executable.");
-        } else {
-            fmt.println_err("Could not move executable!");
-        }
-        if transient.generate_debug {
-            ok = move(fmt.bprintf(e_buf[..], "%s.pdb\x00", file_name),
-                      fmt.bprintf(n_buf[..], "build/%s.pdb\x00", string_util.remove_path_from_file(file_name)));
-            if ok {
-                fmt.println("Moved pdb.");
-            } else {
-                fmt.println_err("Could not move pdb!");
-            }
-        }*/
+
         success := 0;
         for str in settings.files_to_move {
             ok := copy(fmt.bprintf(e_buf[..], "%s\x00", str),
@@ -768,7 +741,7 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
 
         for str in settings.files_to_delete {
             cstr := fmt.bprintf(e_buf[..], "%s\x00", str);
-            ok := win32.delete_file_a(&cstr[0]);
+            ok := win32.delete_file_a(cstring(&cstr[0]));
             if !ok {
                 ERROR_FILE_NOT_FOUND :: 2;
                 err := win32.get_last_error();
@@ -784,13 +757,7 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
     }
 
     if transient.use_otime {
-        name : string;
-        if transient.otime_use_app {
-            name = settings.app_name;
-        } else {
-            name = transient.otime_file;
-        }
-        execute_system_command("otime -end %s.otm %d", name, exit_code);
+        do_otime(settings, transient, Otime_Usage.Begin, exit_code);
     }
 }
 
@@ -799,7 +766,7 @@ setup :: proc(app_name : string, settings : ^Settings) {
     settings.main_file = "src/main.odin";
     
     create_directory :: proc(name : string) {
-        win32.create_directory_a(&name[0], nil);
+        win32.create_directory_a(cstring(&name[0]), nil);
     }
     create_directory("build");
     create_directory("src");
