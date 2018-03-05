@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 03-03-2018 19:31:11 UTC+1
+ *  @Last Time: 05-03-2018 13:24:56 UTC+1
  *  
  *  @Description:
  *  
@@ -33,11 +33,13 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.1.2-dev";
+VERSION_STR :: "v1.2.0-dev";
 
 Settings :: struct {
     main_file        : string,
     app_name         : string,
+    use_resource     : bool,
+    resource_path    : string,
 
     files_to_move    : [dynamic]string,
     files_to_delete  : [dynamic]string,
@@ -292,8 +294,10 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
 
     main_file_buf : [1024]byte;
     app_name_buf  : [1024]byte;
+    resource_buf  : [1024]byte;
     fmt.bprintf(main_file_buf[..], settings.main_file);
     fmt.bprintf(app_name_buf[..], settings.app_name);
+    fmt.bprintf(resource_buf[..], settings.resource_path);
 
     move_buf : [1024]byte;
     add_new_move := false;
@@ -396,12 +400,23 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
                 settings.app_name = string_util.str_from_buf(app_name_buf[..]);
                 cel.marshal_file(SETTINGS_PATH, settings^);
             }
+            if imgui.checkbox("Use Resource File?", &settings.use_resource) {
+                cel.marshal_file(SETTINGS_PATH, settings^);
+            }
+            if settings.use_resource {
+                if imgui.input_text("Resource Name", resource_buf[..]) {
+                    settings.resource_path = string_util.str_from_buf(resource_buf[..]);
+                    cel.marshal_file(SETTINGS_PATH, settings^);
+                }
+            }
             if imgui.checkbox("Use Otime?", &transient.use_otime) {
                 cel.marshal_file(TRANSIENT_PATH, transient^);
             }
             if transient.use_otime {
                 imgui.indent();
                 if imgui.checkbox("Use app name?", &transient.otime_use_app) {
+                    transient.otime_file = settings.app_name;
+                    fmt.bprintf(otime_file_buf[..], transient.otime_file);
                     cel.marshal_file(TRANSIENT_PATH, transient^);
                 }
                 if !transient.otime_use_app {
@@ -649,15 +664,9 @@ Otime_Usage :: enum {
 }
 
 do_otime :: proc(settings : ^Settings, transient : ^Transient, usage : Otime_Usage, exit_code := 0) {
-    name : string;
-    if transient.otime_use_app {
-        name = settings.app_name;
-    } else {
-        name = transient.otime_file;
-    }
     switch usage {
-        case Otime_Usage.Begin : misc.execute_system_command("otime -begin %s.otm", name);
-        case Otime_Usage.End   : misc.execute_system_command("otime -end %s.otm %d", name, exit_code);
+        case Otime_Usage.Begin : misc.execute_system_command("otime -begin %s.otm",  transient.otime_file);
+        case Otime_Usage.End   : misc.execute_system_command("otime -end %s.otm %d", transient.otime_file, exit_code);
     }
 }
 
@@ -706,13 +715,20 @@ build :: proc(settings : ^Settings, transient : ^Transient) {
         collection_string = string_util.str_from_buf(buf[..]);
     }
 
-    exit_code := misc.execute_system_command("odin build %s -opt=%d %s %s -out=build/%s %s", 
+    resource_string := "";
+    if settings.use_resource {
+        resource_string = fmt.aprintf("-resource=%s", settings.resource_path);
+    }
+
+    exit_code := misc.execute_system_command("odin build %s -opt=%d %s %s -out=build/%s %s %s", 
                                         settings.main_file,
                                         transient.opt_level,
                                         transient.generate_debug ? "-debug" : "",
                                         transient.keep_temp_files ? "-keep-temp-files" : "",
                                         settings.app_name,
-                                        collection_string);
+                                        collection_string,
+                                        resource_string);
+
     move :: proc(e, n : string) -> bool {
         return cast(bool)win32.move_file_ex_a(cstring(&e[0]), cstring(&n[0]), win32.MOVEFILE_REPLACE_EXISTING | win32.MOVEFILE_WRITE_THROUGH | win32.MOVEFILE_COPY_ALLOWED);
     }

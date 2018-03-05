@@ -3,5 +3,5 @@ generate_debug = false
 keep_temp_files = false
 use_otime = true
 otime_use_app = false
-otime_file = "test"
+otime_file = "HELL YEAH"
 collections = []

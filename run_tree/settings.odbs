@@ -1,5 +1,7 @@
 main_file = "WEEE"
 app_name = "HELL YEAH"
+use_resource = true
+resource_path = "src/resource.rc"
 files_to_move = []
 files_to_delete = []
 collection_names = []
