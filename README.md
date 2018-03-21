@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://rawgit.com/ThisDrunkDane/OdinBuilder/master/ob%20Logo.png" alt="Odinbuilder logo" height=250px/>
+    <img src="https://rawgit.com/ThisDrunkDane/OdinBuilder/master/logo.png" alt="Odinbuilder logo" height=250px/>
     <br/>
     A build-system lite for Odin
     <br/>
