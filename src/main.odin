@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 05-03-2018 13:24:56 UTC+1
+ *  @Last Time: 13-04-2018 23:37:48 UTC+1
  *  
  *  @Description:
  *  
@@ -33,7 +33,7 @@ import imgui "shared:libbrew/brew_imgui.odin";
 import gl    "shared:libbrew/gl.odin";
 import       "shared:libbrew/dyna_util.odin";
 
-VERSION_STR :: "v1.2.0-dev";
+VERSION_STR :: "v1.3.0-dev";
 
 Settings :: struct {
     main_file        : string,
@@ -310,6 +310,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
     add_new_collection  := false;
     editing_collection  := false;
     editing_index       := -1;
+    modal_open          := false;
 
     otime_file_buf : [256]byte;
     fmt.bprintf(otime_file_buf[..], transient.otime_file);
@@ -379,7 +380,45 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
             imgui.begin("main", nil, imgui.Window_Flags.NoTitleBar |
                                      imgui.Window_Flags.NoResize |
                                      imgui.Window_Flags.NoCollapse | 
-                                     imgui.Window_Flags.NoMove);
+                                     imgui.Window_Flags.NoMove |
+                                     imgui.Window_Flags.MenuBar);
+
+            p_open := -1;
+            if imgui.begin_menu_bar() {
+                if imgui.begin_menu("Packages") {
+                    defer imgui.end_menu();
+                    if imgui.menu_item("List") {
+                        p_open = 1;
+                    }
+                    if imgui.menu_item("Add Package") {
+                        p_open = 2;
+                    }
+                    if imgui.menu_item("Remove Package") {
+                        p_open = 3;
+                    }
+                    imgui.separator();
+                    if imgui.menu_item("Download Now") {
+                        p_open = 4;
+                    }
+                }
+            }
+            imgui.end_menu_bar();
+
+            switch p_open {
+                case 1: {
+                    imgui.open_popup("List Packages###LIST_PACKAGES");
+                    modal_open = true;
+                }
+            }
+            imgui.set_next_window_size(imgui.Vec2{400, 300});
+            if imgui.begin_popup_modal("List Packages###LIST_PACKAGES", &modal_open,
+                                       imgui.Window_Flags.NoResize | imgui.Window_Flags.NoMove) {
+
+                for i in 0..10 {
+                    imgui.text("TEST @ v1.2.3.4.5.6");
+                }
+                defer imgui.end_popup();
+            }
 
             levels := []string{"0", "1", "2", "3"};
             if imgui.combo("Opt Level", cast(^i32)&transient.opt_level, levels) {
@@ -430,7 +469,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
 
             imgui.text("Files to move after building.");
             index_to_remove := -1;
-            if imgui.begin_child("move files", imgui.Vec2{0, 125}) {
+            if imgui.begin_child("move files", imgui.Vec2{0, 100}) {
                 for file, i in settings.files_to_move {
                     imgui.push_id(i); defer imgui.pop_id();
                     imgui.text(file); imgui.same_line();
@@ -468,7 +507,7 @@ gui :: proc(settings : ^Settings, transient : ^Transient) {
 
             imgui.text("Files to delete after building.");
             index_to_remove = -1;
-            if imgui.begin_child("delete files", imgui.Vec2{0, 125}) {
+            if imgui.begin_child("delete files", imgui.Vec2{0, 100}) {
                 for file, i in settings.files_to_delete {
                     imgui.push_id(i); defer imgui.pop_id();
                     imgui.text(file); imgui.same_line();
