@@ -1,4 +1,4 @@
 @echo off
 pushd .\run_tree\
-..\build\odinbuilder.exe edit
+..\build\gungnir.exe edit
 popd

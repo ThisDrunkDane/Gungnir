@@ -6,7 +6,7 @@
  *  @Creation: 24-01-2018 04:24:11 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 16-06-2018 00:28:27 UTC+1
+ *  @Last Time: 16-06-2018 00:39:45 UTC+1
  *  
  *  @Description:
  *      Main file for Gungnir
@@ -25,7 +25,7 @@ import sys  "shared:libbrew/sys";
 import cel  "shared:odin-cel";
 import util "shared:libbrew/util";
 
-VERSION_STR :: "v1.3.0";
+VERSION_STR :: "v1.4.0-dev";
 
 usage :: proc() {
     fmt.fprintf(os.stderr, "Gungnir %s by Mikkel Hjortshoej 2018\n", VERSION_STR);

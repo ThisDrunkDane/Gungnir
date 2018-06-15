@@ -6,7 +6,7 @@
  *  @Creation: 21-05-2018 15:57:17 UTC+1
  *
  *  @Last By:   Mikkel Hjortshoej
- *  @Last Time: 16-06-2018 00:20:37 UTC+1
+ *  @Last Time: 16-06-2018 00:48:47 UTC+1
  *  
  *  @Description:
  *  
@@ -118,6 +118,9 @@ String_Buffers :: struct {
 
     move_buf       : [1024]byte,
     delete_buf     : [1024]byte,
+
+    collection_name_buf : [1024]byte,
+    collection_path_buf : [1024]byte,
 }
 
 gui_run :: proc(settings : ^Settings, transient : ^Transient) {
@@ -145,8 +148,6 @@ gui_run :: proc(settings : ^Settings, transient : ^Transient) {
     fmt.bprintf(str_bufs.resource_buf[..], settings.resource_path);
     fmt.bprintf(str_bufs.otime_file_buf[..], transient.otime_file);
 
-    collection_name_buf : [1024]byte;
-    collection_path_buf : [1024]byte;
     add_new_collection  := false;
     editing_collection  := false;
     editing_index       := -1;
@@ -271,154 +272,9 @@ gui_run :: proc(settings : ^Settings, transient : ^Transient) {
             files_settings(settings, str_bufs.delete_buf[..], &add_new_delete, &settings.files_to_delete, "Files to delete after building.");
             imgui.pop_id();
 
-            index_to_remove := -1;
-            imgui.text("Collections.");
-            index_to_remove = -1;
-            if imgui.begin_child("Collections") {
-                imgui.columns(count = 2, border = false);
-                for col_name, i in settings.collection_names {
-                    if i == editing_index do continue;
-                    imgui.push_id(i); defer imgui.pop_id();
-                    imgui.set_column_width(width = 150);
-                    imgui.text(col_name); imgui.same_line();
-                    imgui.next_column();
-                    collection : Collection_Entry;
-                    for col in transient.collections {
-                        if col_name == col.name {
-                            imgui.text(col.path); imgui.same_line();
-                            collection = col;
-                        }
-                    }
-
-                    if imgui.button("Edit") {
-                        editing_index = i;;
-                        fmt.bprintf(collection_name_buf[..], col_name);
-                        if len(collection.path) > 0 {
-                            fmt.bprintf(collection_path_buf[..], collection.path);
-                        }
-                        editing_collection = true;
-                    } imgui.same_line();
-
-                    if imgui.button("Remove") {
-                        index_to_remove = i;
-                    }
-                    imgui.next_column();
-                }
-                brew_imgui.columns_reset();
-
-                if editing_collection {
-                    imgui.input_text("Name##collection", collection_name_buf[..]); 
-                    imgui.input_text("Path##collection", collection_path_buf[..]);
-
-                    if imgui.button("Save##edit_collection") {
-                        editing_collection = false;
-
-                        new_name := util.str_from_buf(collection_name_buf[..]);
-                        col_name := settings.collection_names[editing_index];
-
-                        if new_name != col_name {
-                            settings.collection_names[editing_index] = strings.new_string(new_name);
-                        }
-
-                        path := util.str_from_buf(collection_path_buf[..]);
-                        if new_name != col_name {
-                            remove_i := -1; 
-                            for old, i in transient.collections {
-                                if old.name == col_name {
-                                    remove_i = i;
-                                }
-                            }
-                            
-                            if index_to_remove > -1 {
-                                util.remove_ordered(&transient.collections, remove_i);
-                            }
-
-                            append(&transient.collections, Collection_Entry{strings.new_string(new_name), 
-                                                                            strings.new_string(path)});
-                        } else {
-                            change := -1;
-                            for col, i in transient.collections {
-                                if col.name == col_name {
-                                    change = i;
-                                }
-                            }
-                            if change > -1 {
-                                col := transient.collections[change];
-                                col.path = strings.new_string(path);
-                                transient.collections[change] = col;
-                            } else {
-                                append(&transient.collections, Collection_Entry{strings.new_string(new_name), 
-                                                                                strings.new_string(path)});
-                            }
-                        }
-
-                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
-                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
-                        editing_index = -1;
-                        cel.marshal_file(SETTINGS_PATH, settings^);
-                        cel.marshal_file(TRANSIENT_PATH, transient^);
-                    }
-                    imgui.same_line();
-                    if imgui.button("Cancel##edit_collection") {
-                        editing_collection = false;
-                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
-                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
-                        editing_index = -1;
-                    }
-                }
-
-                if !add_new_collection && imgui.button("Add collection") {
-                    add_new_collection = true;
-                }
-
-                if add_new_collection {
-                    imgui.input_text("Name##collection", collection_name_buf[..]); 
-                    imgui.input_text("Path##collection", collection_path_buf[..]);
-
-                    if imgui.button("Save##collection") {
-                        add_new_collection = false;
-                        
-                        tmp  := util.str_from_buf(collection_name_buf[..]);
-                        name := strings.new_string(tmp);
-                        append(&settings.collection_names, name);
-                        
-                        tmp   = util.str_from_buf(collection_path_buf[..]);
-                        if len(tmp) > 0 {
-                            path := strings.new_string(tmp);
-                            append(&transient.collections, Collection_Entry{name, path});
-                        }
-
-                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
-                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
-
-                        cel.marshal_file(SETTINGS_PATH, settings^);
-                        cel.marshal_file(TRANSIENT_PATH, transient^);
-                    }
-                    imgui.same_line();
-                    if imgui.button("Cancel##collection") {
-                        add_new_collection = false;
-                        mem.zero(&collection_name_buf[0], len(collection_name_buf));
-                        mem.zero(&collection_path_buf[0], len(collection_path_buf));
-                    }
-                }
-            }
-            imgui.end_child();
-
-            if index_to_remove > -1 {
-                name := settings.collection_names[index_to_remove];
-                remove_i := -1;
-                for col, i in transient.collections {
-                    if col.name == name {
-                        remove_i = i;
-                    }
-                }
-
-                util.remove_ordered(&settings.collection_names, index_to_remove);
-                util.remove_ordered(&transient.collections,     remove_i);
-                cel.marshal_file(SETTINGS_PATH,  settings^);
-                cel.marshal_file(TRANSIENT_PATH, transient^);
-            }
-
+            collection_settings(settings, transient, 
+                                &editing_index, &editing_collection, &add_new_collection,
+                                &str_bufs);
         }
         imgui.end();
         brew_imgui.render_proc(dear_state, true, WND_WIDTH, WND_HEIGHT);
@@ -516,44 +372,157 @@ files_settings :: proc(settings : ^Settings, temp_buf : []byte, add_new : ^bool,
     }
 }
 
-files_to_move :: proc(settings : ^Settings, str_bufs : ^String_Buffers) {
-    add_new_move    := false;
-    index_to_remove := -1;
+collection_settings :: proc(settings : ^Settings, transient : ^Transient, 
+                            editing_index : ^int, editing_collection : ^bool, add_new : ^bool, 
+                            str_bufs : ^String_Buffers) {
 
-    imgui.text("Files to move after building.");
-    if imgui.begin_child("move files", imgui.Vec2{0, 100}) {
-        for file, i in settings.files_to_move {
+    reset_str_bufs :: proc(str_bufs : ^String_Buffers) {
+        mem.zero(&str_bufs.collection_name_buf[0], len(str_bufs.collection_name_buf));
+        mem.zero(&str_bufs.collection_path_buf[0], len(str_bufs.collection_path_buf));
+    }
+
+    index_to_remove := -1;
+    imgui.text("Collections.");
+    index_to_remove = -1;
+    if imgui.begin_child("Collections") {
+        imgui.columns(count = 2, border = false);
+        for col_name, i in settings.collection_names {
+            if i == editing_index^ do continue;
             imgui.push_id(i); defer imgui.pop_id();
-            imgui.text(file); imgui.same_line();
+            imgui.set_column_width(width = 150);
+            imgui.text(col_name); imgui.same_line();
+            imgui.next_column();
+            collection : Collection_Entry;
+            for col in transient.collections {
+                if col_name == col.name {
+                    imgui.text(col.path); imgui.same_line();
+                    collection = col;
+                }
+            }
+
+            if imgui.button("Edit") {
+                editing_index^ = i;
+                fmt.bprintf(str_bufs.collection_name_buf[..], col_name);
+                if len(collection.path) > 0 {
+                    fmt.bprintf(str_bufs.collection_path_buf[..], collection.path);
+                }
+                editing_collection^ = true;
+            } imgui.same_line();
+
             if imgui.button("Remove") {
                 index_to_remove = i;
             }
+            imgui.next_column();
         }
+        brew_imgui.columns_reset();
 
-        if !add_new_move && imgui.button("Add file") {
-            add_new_move = true;
-        }
-        if add_new_move {
-            imgui.input_text("File Name", str_bufs.move_buf[..]); imgui.same_line();
-            if imgui.button("Save") {
-                add_new_move = false;
-                tmp := util.str_from_buf(str_bufs.move_buf[..]);
-                str := strings.new_string(tmp);
-                append(&settings.files_to_move, str);
-                mem.zero(&str_bufs.move_buf[0], len(str_bufs.move_buf));
+        if editing_collection^ {
+            imgui.input_text("Name##collection", str_bufs.collection_name_buf[..]); 
+            imgui.input_text("Path##collection", str_bufs.collection_path_buf[..]);
+
+            if imgui.button("Save##edit_collection") {
+                editing_collection^ = false;
+
+                new_name := util.str_from_buf(str_bufs.collection_name_buf[..]);
+                col_name := settings.collection_names[editing_index^];
+
+                if new_name != col_name {
+                    settings.collection_names[editing_index^] = strings.new_string(new_name);
+                }
+
+                path := util.str_from_buf(str_bufs.collection_path_buf[..]);
+                if new_name != col_name {
+                    remove_i := -1; 
+                    for old, i in transient.collections {
+                        if old.name == col_name {
+                            remove_i = i;
+                        }
+                    }
+                    
+                    if index_to_remove > -1 {
+                        util.remove_ordered(&transient.collections, remove_i);
+                    }
+
+                    append(&transient.collections, Collection_Entry{strings.new_string(new_name), 
+                                                                    strings.new_string(path)});
+                } else {
+                    change := -1;
+                    for col, i in transient.collections {
+                        if col.name == col_name {
+                            change = i;
+                        }
+                    }
+                    if change > -1 {
+                        col := transient.collections[change];
+                        col.path = strings.new_string(path);
+                        transient.collections[change] = col;
+                    } else {
+                        append(&transient.collections, Collection_Entry{strings.new_string(new_name), 
+                                                                        strings.new_string(path)});
+                    }
+                }
+
+                reset_str_bufs(str_bufs);
+                editing_index^ = -1;
                 cel.marshal_file(SETTINGS_PATH, settings^);
+                cel.marshal_file(TRANSIENT_PATH, transient^);
             }
             imgui.same_line();
-            if imgui.button("Cancel") {
-                add_new_move = false;
-                mem.zero(&str_bufs.move_buf[0], len(str_bufs.move_buf));
+            if imgui.button("Cancel##edit_collection") {
+                editing_collection^ = false;
+                reset_str_bufs(str_bufs);
+                editing_index^ = -1;
             }
-        } 
+        }
+
+        if !add_new^ && imgui.button("Add collection") {
+            add_new^ = true;
+        }
+
+        if add_new^ {
+            imgui.input_text("Name##collection", str_bufs.collection_name_buf[..]); 
+            imgui.input_text("Path##collection", str_bufs.collection_path_buf[..]);
+
+            if imgui.button("Save##collection") {
+                add_new^ = false;
+                
+                tmp  := util.str_from_buf(str_bufs.collection_name_buf[..]);
+                name := strings.new_string(tmp);
+                append(&settings.collection_names, name);
+                
+                tmp   = util.str_from_buf(str_bufs.collection_path_buf[..]);
+                if len(tmp) > 0 {
+                    path := strings.new_string(tmp);
+                    append(&transient.collections, Collection_Entry{name, path});
+                }
+
+                reset_str_bufs(str_bufs);
+
+                cel.marshal_file(SETTINGS_PATH, settings^);
+                cel.marshal_file(TRANSIENT_PATH, transient^);
+            }
+            imgui.same_line();
+            if imgui.button("Cancel##collection") {
+                add_new^ = false;
+                reset_str_bufs(str_bufs);
+            }
+        }
     }
     imgui.end_child();
-    
+
     if index_to_remove > -1 {
-        util.remove_ordered(&settings.files_to_move, index_to_remove);
-        cel.marshal_file(SETTINGS_PATH, settings^);
+        name := settings.collection_names[index_to_remove];
+        remove_i := -1;
+        for col, i in transient.collections {
+            if col.name == name {
+                remove_i = i;
+            }
+        }
+
+        util.remove_ordered(&settings.collection_names, index_to_remove);
+        util.remove_ordered(&transient.collections,     remove_i);
+        cel.marshal_file(SETTINGS_PATH,  settings^);
+        cel.marshal_file(TRANSIENT_PATH, transient^);
     }
+
 }
