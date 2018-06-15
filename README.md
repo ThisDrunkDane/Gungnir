@@ -17,4 +17,4 @@
 </p>
 
 ### Sublime Text
-Here is a [gist](https://gist.github.com/ThisDrunkDane/cc09335b5d30f21a034626984ebe972c) of a .sublime-build to use odinbuilder, requires odinbuilder to be in your PATH
+Look in the releases. There is a .sublime_build associated with newer releases.
