@@ -1,7 +1,7 @@
-main_file = "WEEE"
-app_name = "HELL YEAH"
-use_resource = true
-resource_path = "src/resource.rc"
+main_file = "src/main.odin"
+app_name = "main"
+use_resource = false
+resource_path = ""
 files_to_move = []
 files_to_delete = []
 collection_names = []
